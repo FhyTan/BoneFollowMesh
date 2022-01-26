@@ -25,25 +25,30 @@ class OBJECT_OT_bone_follow_mesh(bpy.types.Operator):
         return isinstance(bpy.context.active_object.data, bpy.types.Armature)
 
     def execute(self, context):
-        bone_vert_map = {}  # {bone.name: (head_vert_index, end_vert_index)}
-
         # create mesh
         mesh = bpy.data.meshes.new('Bone Mesh')
         verts = []
         edges = []
+        bone_vert_map = {}  # {bone.name: (head_vert_index, end_vert_index)}
+        vert_index = {}  # {freeze vert: index}
 
         obj = context.active_object
         armature = obj.data
         for bone in armature.bones:
-            head_vert_index = 0
-            if bone.parent is None:
-                head_vert_index = len(verts)
-                verts.append(bone.head_local + obj.location)
-            else:
-                head_vert_index = bone_vert_map[bone.parent.name][1]
+            head_vert = (bone.head_local + obj.location -
+                         context.scene.cursor.location).freeze()
+            tail_vert = (bone.tail_local + obj.location -
+                         context.scene.cursor.location).freeze()
 
-            tail_vert_index = len(verts)
-            verts.append(bone.tail_local + obj.location)
+            head_vert_index = vert_index.get(head_vert)
+            if head_vert_index is None:
+                vert_index[head_vert] = head_vert_index = len(verts)
+                verts.append(head_vert)
+
+            tail_vert_index = vert_index.get(tail_vert)
+            if tail_vert_index is None:
+                vert_index[tail_vert] = tail_vert_index = len(verts)
+                verts.append(tail_vert)
 
             bone_vert_map[bone.name] = (head_vert_index, tail_vert_index)
             edges.append(bone_vert_map[bone.name])
